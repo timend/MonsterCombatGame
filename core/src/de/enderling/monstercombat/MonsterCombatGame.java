@@ -468,25 +468,49 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
                 return true;
             }
 
-            if (moveableLayer.getCell(newX, newY) != null) {
+            TiledMapTileLayer.Cell targetCell = moveableLayer.getCell(newX, newY);
+            if (targetCell != null) {
+
+                Character monster = findMonster(newX, newY);
+
+                if (monster != null) {
+                    float stärke = cell.getTile().getProperties().get("stärke", 1f, Float.class);
+                    monster.hit(stärke);
+                }
+
                 return true;
             }
+
 
             return false;
         }
 
     }
 
+    private Character findMonster(int x, int y) {
+        for (Character monster : monsters) {
+            if (monster.getX() == x && monster.getY() == y) {
+                return monster;
+            }
+        }
+        return null;
+    }
+
     private class Character {
         private TiledMapTileLayer.Cell cell;
         private int x;
         private int y;
+        private Float lifePoints;
+        private Timer.Task task;
 
         public Character(TiledMapTileLayer.Cell cell, int x, int y) {
             this.cell = cell;
             this.x = x;
             this.y = y;
+            this.lifePoints = cell.getTile().getProperties().get("leben", null, Float.class);
         }
+
+
 
         public TiledMapTileLayer.Cell getCell() {
             return cell;
@@ -514,7 +538,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
 
         public void init() {
             float geschwindigkeit = cell.getTile().getProperties().get("schnell", 1.5f, Float.class);
-            Timer.Task task = new Timer.Task() {
+             task = new Timer.Task() {
                 @Override
                 public void run() {
                     if (moveableLayer.getCell(x, y) != cell) {
@@ -531,6 +555,20 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
                 }
             };
             timer.scheduleTask(task, 0, 1/geschwindigkeit);
+        }
+
+        public void hit(float attack) {
+            if (lifePoints == null) {
+                return;
+            }
+
+            lifePoints -= attack;
+
+            if (lifePoints <= 0) {
+                moveableLayer.setCell(x, y, null);
+                task.cancel();
+                monsters.remove(this);
+            }
         }
     }
 }

@@ -14,7 +14,6 @@ import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.utils.Timer;
-import net.dermetfan.gdx.maps.tiled.TmxMapWriter;
 import net.dermetfan.gdx.maps.tiled.TmxMapWriter.Format;
 
 import java.io.File;
@@ -276,7 +275,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         lastPlayerDx = dx;
         lastPlayerDy = dy;
 
-        if (moveCharacter(dx, dy, player, true)) {
+        if (player.moveCharacter(dx, dy, true)) {
             camera.translate(32 * dx, 32 * dy);
 
             TiledMapTileLayer.Cell cell = groundLayer.getCell(player.getX(), player.getY());
@@ -293,38 +292,6 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
     }
 
     int destroyStones = 0;
-
-    /**
-     * Returns if the character moved.
-     *
-     * @param dx
-     * @param dy
-     * @param character
-     * @param canPush
-     * @return
-     */
-    public boolean moveCharacter(int dx, int dy, Character character, boolean canPush) {
-        int newPlayerX = character.getX()+dx;
-        int newPlayerY = character.getY()+dy;
-
-        if (newPlayerX < 0 || newPlayerX >= moveableLayer.getWidth()) {
-            return false;
-        }
-
-        if (newPlayerY < 0 || newPlayerY >= moveableLayer.getHeight()) {
-            return false;
-        }
-
-        if (!handleBlockingCell(dx, dy, canPush, newPlayerX, newPlayerY)) {
-            return false;
-        }
-
-        moveableLayer.setCell(character.getX(), character.getY(), null);
-        character.setX(newPlayerX);
-        character.setY(newPlayerY);
-        moveableLayer.setCell(character.getX(), character.getY(), character.getCell());
-        return true;
-    }
 
     /**
      * Returns if the blocking cell got dissolved (or there was none at the first place)
@@ -363,9 +330,10 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
             return true;
         }
 
+        //TODO: Find existing Character instance instead!
         Character pushedCharacter = new Character(blockingCell, newPlayerX, newPlayerY);
 
-        return moveCharacter(dx, dy, pushedCharacter, canPush);
+        return pushedCharacter.moveCharacter(dx, dy, canPush);
     }
 
     @Override
@@ -445,7 +413,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
                     int newY = y+dy;
 
                     if (handleCollision(newX, newY)) {
-                        fireLayer.setCell(x,y, null);
+                        fireLayer.setCell(x, y, null);
                         this.cancel();
                         return;
                     }
@@ -475,7 +443,15 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
 
                 if (monster != null) {
                     float stärke = cell.getTile().getProperties().get("stärke", 1f, Float.class);
-                    monster.hit(stärke);
+
+                    Integer effectIndex = cell.getTile().getProperties().get("effekt", null, Integer.class);
+                    TiledMapTile effect = null;
+
+                    if (effectIndex != null) {
+                        effect = tiledMap.getTileSets().getTileSet("dungeon").getTile(effectIndex + 1);
+                    }
+
+                    monster.hit(stärke, effect);
                 }
 
                 return true;
@@ -498,10 +474,12 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
 
     private class Character {
         private TiledMapTileLayer.Cell cell;
+        private TiledMapTileLayer.Cell effectCell;
         private int x;
         private int y;
         private Float lifePoints;
         private Timer.Task task;
+        private Timer.Task effectTask;
 
         public Character(TiledMapTileLayer.Cell cell, int x, int y) {
             this.cell = cell;
@@ -509,8 +487,6 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
             this.y = y;
             this.lifePoints = cell.getTile().getProperties().get("leben", null, Float.class);
         }
-
-
 
         public TiledMapTileLayer.Cell getCell() {
             return cell;
@@ -547,9 +523,9 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
 
                     if (random.nextFloat() > 0.6) {
                         if (random.nextBoolean()) {
-                            moveCharacter(random.nextInt(3) - 1, 0, Character.this, false);
+                            moveCharacter(random.nextInt(3) - 1, 0, false);
                         } else {
-                            moveCharacter(0, random.nextInt(3) - 1, Character.this, false);
+                            moveCharacter(0, random.nextInt(3) - 1, false);
                         }
                     }
                 }
@@ -557,18 +533,75 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
             timer.scheduleTask(task, 0, 1/geschwindigkeit);
         }
 
-        public void hit(float attack) {
+        public void hit(float attack, TiledMapTile effect) {
             if (lifePoints == null) {
                 return;
+            }
+
+            if (effect != null) {
+                effectCell = new TiledMapTileLayer.Cell();
+                effectCell.setTile(effect);
+                fireLayer.setCell(x, y, effectCell);
+
+                float effectDuration = effect.getProperties().get("dauer", 1f, Float.class);
+
+                if (effectTask != null) {
+                    effectTask.cancel();
+                    effectTask = null;
+                }
+
+                effectTask = timer.scheduleTask(new Timer.Task() {
+                    @Override
+                    public void run() {
+                        effectCell = null;
+                        effectTask = null;
+                        fireLayer.setCell(x, y, null);
+                    }
+                }, effectDuration);
+
             }
 
             lifePoints -= attack;
 
             if (lifePoints <= 0) {
                 moveableLayer.setCell(x, y, null);
+                fireLayer.setCell(x, y, null);
                 task.cancel();
                 monsters.remove(this);
             }
+        }
+
+        /**
+         * Returns if the character moved.
+         *
+         * @param dx
+         * @param dy
+         * @param canPush
+         * @return
+         */
+        public boolean moveCharacter(int dx, int dy, boolean canPush) {
+            int newPlayerX = getX()+dx;
+            int newPlayerY = getY()+dy;
+
+            if (newPlayerX < 0 || newPlayerX >= moveableLayer.getWidth()) {
+                return false;
+            }
+
+            if (newPlayerY < 0 || newPlayerY >= moveableLayer.getHeight()) {
+                return false;
+            }
+
+            if (!handleBlockingCell(dx, dy, canPush, newPlayerX, newPlayerY)) {
+                return false;
+            }
+
+            moveableLayer.setCell(getX(), getY(), null);
+            fireLayer.setCell(x, y, null);
+            setX(newPlayerX);
+            setY(newPlayerY);
+            moveableLayer.setCell(getX(), getY(), getCell());
+            fireLayer.setCell(x, y, effectCell);
+            return true;
         }
     }
 }

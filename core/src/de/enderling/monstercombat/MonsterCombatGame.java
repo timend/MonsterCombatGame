@@ -29,7 +29,11 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
 
     TiledMapTileLayer moveableLayer;
     TiledMapTileLayer groundLayer;
+    TiledMapTileLayer fireLayer;
     TiledMap tiledMap;
+
+    TiledMapTile waffe;
+
     List<Character> monsters;
     Character player;
     Timer timer;
@@ -40,6 +44,8 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
 
     Skin skin;
 
+    int lastPlayerDx = 1;
+    int lastPlayerDy = 0;
 
     public class GameState {
         String fileName;
@@ -68,6 +74,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         addObservedKey(Input.Keys.RIGHT);
         addObservedKey(Input.Keys.UP);
         addObservedKey(Input.Keys.DOWN);
+        addObservedKey(Input.Keys.SPACE);
         Gdx.input.setInputProcessor(this);
 
         skin = new Skin();
@@ -95,6 +102,13 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         this.random = new Random();
 
         loadGameState(new GameState("julius.tmx", 0));
+
+        for (TiledMapTile tile : tiledMap.getTileSets().getTileSet("dungeon")) {
+            if (tile.getProperties().containsKey(("waffe"))) {
+                waffe = tile;
+            }
+        }
+
 
         savePoint();
     }
@@ -130,6 +144,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
 
         moveableLayer = (TiledMapTileLayer) tiledMap.getLayers().get("Monster");
         groundLayer = (TiledMapTileLayer) tiledMap.getLayers().get("Boden");
+        fireLayer = (TiledMapTileLayer) tiledMap.getLayers().get("Feuer");
 
         player = findPlayer();
 
@@ -178,7 +193,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
             tiledMap.getLayers().get(1).setVisible(!tiledMap.getLayers().get(1).isVisible());
         if(keycode == Input.Keys.NUM_3)
             tiledMap.getLayers().get(2).setVisible(!tiledMap.getLayers().get(2).isVisible());
-        if (keycode == Input.Keys.SPACE)
+        if (keycode == Input.Keys.BACKSPACE)
             loadGameState(savePoint);
         return false;
     }
@@ -247,10 +262,20 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
             movePlayer(0, 1);
         if(observedKeys.get(Input.Keys.DOWN).justPressedOrRepeated())
             movePlayer(0, -1);
+        if (observedKeys.get(Input.Keys.SPACE).justPressedOrRepeated())
+            fire();
         return false;
     }
 
+    private void fire() {
+        Fire fire = new Fire(waffe, player.getX(), player.getY(), lastPlayerDx, lastPlayerDy);
+        fire.init();
+    }
+
     private void movePlayer(int dx, int dy) {
+        lastPlayerDx = dx;
+        lastPlayerDy = dy;
+
         if (moveCharacter(dx, dy, player, true)) {
             camera.translate(32 * dx, 32 * dy);
 
@@ -390,6 +415,66 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
             }
         }
         return characters;
+    }
+
+    private class Fire  {
+        private TiledMapTileLayer.Cell cell;
+        private int x;
+        private int y;
+        private int dx;
+        private int dy;
+
+        public Fire(TiledMapTile tile, int x, int y, int dx, int dy) {
+            cell = new TiledMapTileLayer.Cell();
+            cell.setTile(tile);
+
+            fireLayer.setCell(x, y, cell);
+
+            this.x = x;
+            this.y = y;
+            this.dx = dx;
+            this.dy = dy;
+        }
+
+        public void init() {
+            float geschwindigkeit = cell.getTile().getProperties().get("schnell", 1.5f, Float.class);
+            Timer.Task task = new Timer.Task() {
+                @Override
+                public void run() {
+                    int newX = x+dx;
+                    int newY = y+dy;
+
+                    if (handleCollision(newX, newY)) {
+                        fireLayer.setCell(x,y, null);
+                        this.cancel();
+                        return;
+                    }
+
+                    fireLayer.setCell(x, y, null);
+                    x = newX;
+                    y = newY;
+                    fireLayer.setCell(x, y, cell);
+                }
+            };
+            timer.scheduleTask(task, 0, 1/geschwindigkeit);
+        }
+
+        private boolean handleCollision(int newX, int newY) {
+            if (newX < 0 || newX >= moveableLayer.getWidth()) {
+                return true;
+            }
+
+            if (newY < 0 || newY >= moveableLayer.getHeight()) {
+                return true;
+            }
+
+            if (moveableLayer.getCell(newX, newY) != null) {
+                return true;
+            }
+
+            return false;
+        }
+
     }
 
     private class Character {

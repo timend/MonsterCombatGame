@@ -1,10 +1,15 @@
 package de.enderling.monstercombat;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.ai.pfa.*;
+import com.badlogic.gdx.ai.pfa.indexed.IndexedAStarPathFinder;
+import com.badlogic.gdx.ai.pfa.indexed.IndexedGraph;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.maps.MapProperties;
 import com.badlogic.gdx.maps.tiled.TiledMapTile;
 import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Timer;
 
 import static com.badlogic.gdx.graphics.GL20.GL_BLEND;
@@ -17,6 +22,8 @@ class Character {
     private TiledMapTileLayer.Cell effectCell;
     private int x;
     private int y;
+    private Float attack;
+
     private Float lifePoints;
     private Timer.Task task;
     private Timer.Task effectTask;
@@ -26,6 +33,7 @@ class Character {
         this.cell = cell;
         this.x = x;
         this.y = y;
+        this.attack = cell.getTile().getProperties().get("stärke", Float.class);
         this.lifePoints = getMaximumLifePoints();
     }
 
@@ -57,6 +65,127 @@ class Character {
         this.y = y;
     }
 
+
+    private static class TileMapNode {
+        public int x;
+        public int y;
+
+        public TileMapNode(int x, int y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        @Override
+        public String toString() {
+            return "(" + x +
+                    "," + y +
+                    ')';
+        }
+    }
+
+    private class TileMapGraph implements IndexedGraph<TileMapNode> {
+
+        public TileMapGraph(int minX, int minY, int width, int height) {
+            this.minX = minX;
+            this.minY = minY;
+            this.width = width;
+            this.height = height;
+            this.nodes = new TileMapNode[width][height];
+        }
+
+        TileMapNode[][] nodes;
+
+        int minX;
+        int minY;
+        int width;
+        int height;
+
+        public TileMapNode getNode(int x, int y) {
+            if (nodes[x - minX][y - minY] == null) {
+                nodes[x - minX][y - minY] = new TileMapNode(x, y);
+            }
+
+            return nodes[x - minX][y - minY];
+        }
+
+        @Override
+        public Array<Connection<TileMapNode>> getConnections(TileMapNode fromNode) {
+            Array<Connection<TileMapNode>> connections = new Array<Connection<TileMapNode>>(4);
+
+            for (int dx = -1; dx <= 1; dx+=2) {
+                addConnection(fromNode, connections, dx, 0);
+            }
+
+            for (int dy = -1; dy <= 1; dy+=2) {
+                addConnection(fromNode, connections, 0, dy);
+            }
+
+            return connections;
+        }
+
+        private void addConnection(TileMapNode fromNode, Array<Connection<TileMapNode>> connections, int dx, int dy) {
+            int targetX = fromNode.x + dx;
+            int targetY = fromNode.y + dy;
+
+            if (targetX < minX || targetX >= minX + width) {
+                return;
+            }
+
+            if (targetY < minY || targetY >= minY + height) {
+                return;
+            }
+
+            if (monsterCombatGame.moveableLayer.getCell(targetX, targetY) == null ||
+                    ((targetX == monsterCombatGame.player.getX() &&
+                    targetY == monsterCombatGame.player.getY())) ||
+                    monsterCombatGame.findMonster(targetX, targetY) != null) {
+                connections.add(new DefaultConnection<TileMapNode>(fromNode,
+                        getNode(targetX, targetY)));
+            }
+        }
+
+        @Override
+        public int getIndex(TileMapNode node) {
+            return (node.y - minY) * width + node.x - minX;
+        }
+
+        @Override
+        public int getNodeCount() {
+            return width * height;
+        }
+    }
+
+    private static class TileMapHeuristic implements Heuristic<TileMapNode> {
+
+        @Override
+        public float estimate(TileMapNode node, TileMapNode endNode) {
+            return Math.abs(endNode.x - node.x) + Math.abs(endNode.y - node.y);
+        }
+    }
+
+    public TileMapNode findMoveToPlayer() {
+        TileMapGraph tileMapGraph = new TileMapGraph(0, 0, monsterCombatGame.moveableLayer.getWidth(), monsterCombatGame.moveableLayer.getHeight());
+        IndexedAStarPathFinder<TileMapNode> pathFinder = new IndexedAStarPathFinder<TileMapNode>(
+                tileMapGraph, false);
+
+        TileMapNode fromNode = tileMapGraph.getNode(x,y);
+        TileMapNode targetNode = tileMapGraph.getNode(monsterCombatGame.player.getX(), monsterCombatGame.player.getY());
+
+        GraphPath<Connection<TileMapNode>> path = new DefaultGraphPath<Connection<TileMapNode>>();
+
+        if (pathFinder.searchConnectionPath(fromNode, targetNode, new TileMapHeuristic(),  path)) {
+            return path.get(0).getToNode();
+        } else {
+            if (pathFinder.metrics != null) {
+                System.out.println("----------------- Indexed A* Path Finder Metrics -----------------");
+                System.out.println("Visited nodes................... = " + pathFinder.metrics.visitedNodes);
+                System.out.println("Open list additions............. = " + pathFinder.metrics.openListAdditions);
+                System.out.println("Open list peak.................. = " + pathFinder.metrics.openListPeak);
+            }
+            return null;
+        }
+    }
+
     public void init() {
         float geschwindigkeit = cell.getTile().getProperties().get("schnell", 1.5f, Float.class);
         task = new Timer.Task() {
@@ -66,11 +195,21 @@ class Character {
                     this.cancel();
                 }
 
-                if (monsterCombatGame.random.nextFloat() > 0.6) {
-                    if (monsterCombatGame.random.nextBoolean()) {
-                        moveCharacter(monsterCombatGame.random.nextInt(3) - 1, 0);
-                    } else {
-                        moveCharacter(0, monsterCombatGame.random.nextInt(3) - 1);
+                TileMapNode node = null;
+
+                if (attack != null) {
+                    node = findMoveToPlayer();
+                }
+
+                if (node != null) {
+                    moveCharacter(node.x - x, node.y - y);
+                } else {
+                    if (monsterCombatGame.random.nextFloat() > 0.6) {
+                        if (monsterCombatGame.random.nextBoolean()) {
+                            moveCharacter(monsterCombatGame.random.nextInt(3) - 1, 0);
+                        } else {
+                            moveCharacter(0, monsterCombatGame.random.nextInt(3) - 1);
+                        }
                     }
                 }
             }
@@ -109,6 +248,11 @@ class Character {
         lifePoints -= attack;
 
         if (lifePoints <= 0) {
+            if (this == monsterCombatGame.player) {
+                monsterCombatGame.loadGameState(monsterCombatGame.savePoint);
+                return;
+            }
+
             monsterCombatGame.moveableLayer.setCell(x, y, null);
             monsterCombatGame.fireLayer.setCell(x, y, null);
             task.cancel();
@@ -188,14 +332,18 @@ class Character {
      *
      * @param dx
      * @param dy
-     * @param newPlayerX
-     * @param newPlayerY
+     * @param newX
+     * @param newY
      * @return
      */
-    protected boolean handleBlockingCell(int dx, int dy, int newPlayerX, int newPlayerY) {
-        TiledMapTileLayer.Cell blockingCell = monsterCombatGame.moveableLayer.getCell(newPlayerX, newPlayerY);
+    protected boolean handleBlockingCell(int dx, int dy, int newX, int newY) {
+        TiledMapTileLayer.Cell blockingCell = monsterCombatGame.moveableLayer.getCell(newX, newY);
         if (blockingCell == null) {
             return true;
+        }
+
+        if (attack != null && newX == monsterCombatGame.player.getX() && newY == monsterCombatGame.player.getY()) {
+            monsterCombatGame.player.hit(attack, null);
         }
 
         return false;

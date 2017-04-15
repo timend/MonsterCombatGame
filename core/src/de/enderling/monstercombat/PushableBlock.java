@@ -10,8 +10,8 @@ public class PushableBlock extends Character {
     }
 
     @Override
-    protected boolean handleBlockingCell(int dx, int dy, int newPlayerX, int newPlayerY) {
-        TiledMapTileLayer.Cell blockingCell = monsterCombatGame.moveableLayer.getCell(newPlayerX, newPlayerY);
+    protected boolean handleBlockingCell(int dx, int dy, int newX, int newY) {
+        TiledMapTileLayer.Cell blockingCell = monsterCombatGame.moveableLayer.getCell(newX, newY);
         if (blockingCell == null) {
             return true;
         }
@@ -23,7 +23,7 @@ public class PushableBlock extends Character {
         }
 
         //TODO: Find existing Character instance instead!
-        Character pushedCharacter = new PushableBlock(monsterCombatGame, blockingCell, newPlayerX, newPlayerY);
+        Character pushedCharacter = new PushableBlock(monsterCombatGame, blockingCell, newX, newY);
         return pushedCharacter.moveCharacter(dx, dy);
     }
 }

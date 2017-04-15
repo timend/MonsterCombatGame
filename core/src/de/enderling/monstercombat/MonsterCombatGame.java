@@ -60,7 +60,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         }
     }
 
-    GameState savePoint = null;
+    public GameState savePoint = null;
 
     @Override
     public void create () {
@@ -143,7 +143,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         }
     }
 
-    private void loadGameState(GameState gameState) {
+    public void loadGameState(GameState gameState) {
         timer.clear();
 
         tiledMap = new TmxMapLoader().load(gameState.fileName);

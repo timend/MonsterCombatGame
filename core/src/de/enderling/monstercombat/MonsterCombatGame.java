@@ -291,7 +291,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
     }
 
     private void fire() {
-        Fire fire = new Fire(waffe, player.getX(), player.getY(), lastPlayerDx, lastPlayerDy);
+        Fire fire = new Fire(this, waffe, player.getX(), player.getY(), lastPlayerDx, lastPlayerDy);
         fire.init();
     }
 
@@ -366,85 +366,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         return characters;
     }
 
-    private class Fire  {
-        private TiledMapTileLayer.Cell cell;
-        private int x;
-        private int y;
-        private int dx;
-        private int dy;
-
-        public Fire(TiledMapTile tile, int x, int y, int dx, int dy) {
-            cell = new TiledMapTileLayer.Cell();
-            cell.setTile(tile);
-
-            fireLayer.setCell(x, y, cell);
-
-            this.x = x;
-            this.y = y;
-            this.dx = dx;
-            this.dy = dy;
-        }
-
-        public void init() {
-            float geschwindigkeit = cell.getTile().getProperties().get("schnell", 1.5f, Float.class);
-            Timer.Task task = new Timer.Task() {
-                @Override
-                public void run() {
-                    int newX = x+dx;
-                    int newY = y+dy;
-
-                    if (handleCollision(newX, newY)) {
-                        fireLayer.setCell(x, y, null);
-                        this.cancel();
-                        return;
-                    }
-
-                    fireLayer.setCell(x, y, null);
-                    x = newX;
-                    y = newY;
-                    fireLayer.setCell(x, y, cell);
-                }
-            };
-            timer.scheduleTask(task, 0, 1/geschwindigkeit);
-        }
-
-        private boolean handleCollision(int newX, int newY) {
-            if (newX < 0 || newX >= moveableLayer.getWidth()) {
-                return true;
-            }
-
-            if (newY < 0 || newY >= moveableLayer.getHeight()) {
-                return true;
-            }
-
-            TiledMapTileLayer.Cell targetCell = moveableLayer.getCell(newX, newY);
-            if (targetCell != null) {
-
-                Character monster = findMonster(newX, newY);
-
-                if (monster != null) {
-                    float stärke = cell.getTile().getProperties().get("stärke", 1f, Float.class);
-
-                    Integer effectIndex = cell.getTile().getProperties().get("effekt", null, Integer.class);
-                    TiledMapTile effect = null;
-
-                    if (effectIndex != null) {
-                        effect = tiledMap.getTileSets().getTileSet("dungeon").getTile(effectIndex + 1);
-                    }
-
-                    monster.hit(stärke, effect);
-                }
-
-                return true;
-            }
-
-
-            return false;
-        }
-
-    }
-
-    private Character findMonster(int x, int y) {
+    public Character findMonster(int x, int y) {
         for (Character monster : monsters) {
             if (monster.getX() == x && monster.getY() == y) {
                 return monster;

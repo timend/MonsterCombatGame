@@ -6,10 +6,12 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.maps.MapProperties;
 import com.badlogic.gdx.maps.tiled.*;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
 
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
@@ -20,6 +22,10 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
+
+import static com.badlogic.gdx.graphics.GL20.GL_BLEND;
+import static com.badlogic.gdx.graphics.GL20.GL_ONE_MINUS_SRC_ALPHA;
+import static com.badlogic.gdx.graphics.GL20.GL_SRC_ALPHA;
 
 public class MonsterCombatGame extends ApplicationAdapter implements InputProcessor {
     Texture img;
@@ -40,6 +46,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
     Stage stage;
 
     Label destroyStonesLabel;
+    Label fpsLabel;
 
     Skin skin;
 
@@ -96,6 +103,10 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         destroyStonesLabel.setY(h-20);
 
         stage.addActor(destroyStonesLabel);
+
+
+        fpsLabel = new Label("0 fps", skin);
+        stage.addActor(fpsLabel);
 
         this.timer = new Timer();
         this.random = new Random();
@@ -168,14 +179,28 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
     public void render () {
         processKeys();
 
+        fpsLabel.setText(Gdx.graphics.getFramesPerSecond() + " fps");
+
         stage.act();
 
         Gdx.gl.glClearColor(0, 0, 0, 1);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        Gdx.gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+
         camera.update();
+
         tiledMapRenderer.setView(camera);
         tiledMapRenderer.render();
+
+
+        ShapeRenderer shapeRenderer = new ShapeRenderer();
+        shapeRenderer.setProjectionMatrix(camera.combined);
+
+        for (Character monster : monsters) {
+            monster.draw(shapeRenderer);
+        }
+
         stage.draw();
     }
 
@@ -485,7 +510,11 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
             this.cell = cell;
             this.x = x;
             this.y = y;
-            this.lifePoints = cell.getTile().getProperties().get("leben", null, Float.class);
+            this.lifePoints = getMaximumLifePoints();
+        }
+
+        private Float getMaximumLifePoints() {
+            return cell.getTile().getProperties().get("leben", null, Float.class);
         }
 
         public TiledMapTileLayer.Cell getCell() {
@@ -602,6 +631,41 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
             moveableLayer.setCell(getX(), getY(), getCell());
             fireLayer.setCell(x, y, effectCell);
             return true;
+        }
+
+        public void draw(ShapeRenderer shapeRenderer) {
+            if (lifePoints == null) {
+                return;
+            }
+
+            float relativeLifePoints = lifePoints/getMaximumLifePoints();
+
+            if (relativeLifePoints >= 1.0f) {
+                return;
+            }
+
+            Gdx.gl.glEnable(GL_BLEND);
+            Gdx.gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+
+            if (relativeLifePoints <= 0.25) {
+                shapeRenderer.setColor(1, 0, 0, .8f);
+            } else if(relativeLifePoints <= 0.5) {
+                shapeRenderer.setColor(1, 1, 0, .8f);
+            } else {
+                shapeRenderer.setColor(0, 1, 0, .8f);
+            }
+
+            shapeRenderer.rect(getX()*32, getY()*32, 32.0f * relativeLifePoints, 5);
+            shapeRenderer.end();
+
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+            shapeRenderer.setColor(1, 1, 1, .8f);
+            shapeRenderer.rect(getX()*32, getY()*32, 32, 5);
+            shapeRenderer.end();
+
+            Gdx.gl.glDisable(GL_BLEND);
         }
     }
 }

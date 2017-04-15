@@ -28,6 +28,10 @@ class Character {
     private Timer.Task task;
     private Timer.Task effectTask;
 
+    public Float getLifePoints() {
+        return lifePoints;
+    }
+
     public Character(MonsterCombatGame monsterCombatGame, TiledMapTileLayer.Cell cell, int x, int y) {
         this.monsterCombatGame = monsterCombatGame;
         this.cell = cell;
@@ -85,12 +89,13 @@ class Character {
 
     private class TileMapGraph implements IndexedGraph<TileMapNode> {
 
-        public TileMapGraph(int minX, int minY, int width, int height) {
+        public TileMapGraph(int minX, int minY, int width, int height, boolean allowMoveThroughMonsters) {
             this.minX = minX;
             this.minY = minY;
             this.width = width;
             this.height = height;
             this.nodes = new TileMapNode[width][height];
+            this.allowMoveThroughMonsters = allowMoveThroughMonsters;
         }
 
         TileMapNode[][] nodes;
@@ -99,6 +104,8 @@ class Character {
         int minY;
         int width;
         int height;
+
+        boolean allowMoveThroughMonsters;
 
         public TileMapNode getNode(int x, int y) {
             if (nodes[x - minX][y - minY] == null) {
@@ -138,7 +145,7 @@ class Character {
             if (monsterCombatGame.moveableLayer.getCell(targetX, targetY) == null ||
                     ((targetX == monsterCombatGame.player.getX() &&
                     targetY == monsterCombatGame.player.getY())) ||
-                    monsterCombatGame.findMonster(targetX, targetY) != null) {
+                    (allowMoveThroughMonsters && monsterCombatGame.findMonster(targetX, targetY) != null)) {
                 connections.add(new DefaultConnection<TileMapNode>(fromNode,
                         getNode(targetX, targetY)));
             }
@@ -163,8 +170,8 @@ class Character {
         }
     }
 
-    public TileMapNode findMoveToPlayer() {
-        TileMapGraph tileMapGraph = new TileMapGraph(0, 0, monsterCombatGame.moveableLayer.getWidth(), monsterCombatGame.moveableLayer.getHeight());
+    public TileMapNode findMoveToPlayer(boolean allowMoveThroughMonsters) {
+        TileMapGraph tileMapGraph = new TileMapGraph(0, 0, monsterCombatGame.moveableLayer.getWidth(), monsterCombatGame.moveableLayer.getHeight(), allowMoveThroughMonsters);
         IndexedAStarPathFinder<TileMapNode> pathFinder = new IndexedAStarPathFinder<TileMapNode>(
                 tileMapGraph, false);
 
@@ -198,7 +205,11 @@ class Character {
                 TileMapNode node = null;
 
                 if (attack != null) {
-                    node = findMoveToPlayer();
+                    node = findMoveToPlayer(false);
+
+                    if (node == null) {
+                        node = findMoveToPlayer(true);
+                    }
                 }
 
                 if (node != null) {
@@ -248,14 +259,12 @@ class Character {
         lifePoints -= attack;
 
         if (lifePoints <= 0) {
-            if (this == monsterCombatGame.player) {
-                monsterCombatGame.loadGameState(monsterCombatGame.savePoint);
-                return;
-            }
-
             monsterCombatGame.moveableLayer.setCell(x, y, null);
             monsterCombatGame.fireLayer.setCell(x, y, null);
-            task.cancel();
+            if (task != null) {
+                task.cancel();
+            }
+
             monsterCombatGame.monsters.remove(this);
         }
     }

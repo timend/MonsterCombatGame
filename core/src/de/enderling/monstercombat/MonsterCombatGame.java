@@ -176,6 +176,10 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
     public void render () {
         processKeys();
 
+        if (player.getLifePoints() <= 0) {
+            loadGameState(savePoint);
+        }
+
         fpsLabel.setText(Gdx.graphics.getFramesPerSecond() + " fps");
 
         stage.act();

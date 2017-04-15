@@ -299,7 +299,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         lastPlayerDx = dx;
         lastPlayerDy = dy;
 
-        if (player.moveCharacter(dx, dy, true)) {
+        if (player.moveCharacter(dx, dy)) {
             camera.translate(32 * dx, 32 * dy);
 
             TiledMapTileLayer.Cell cell = groundLayer.getCell(player.getX(), player.getY());
@@ -358,7 +358,14 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
 
                 if (cell != null && cell.getTile() != null) {
                     if (cell.getTile().getProperties().containsKey(propertyName)) {
-                        characters.add(new Character(this, cell, x, y));
+
+                        if (propertyName.equals("spieler")) {
+                            characters.add(new Player(this, cell, x, y));
+                        } else {
+                            characters.add(new Character(this, cell, x, y));
+                        }
+
+
                     }
                 }
             }

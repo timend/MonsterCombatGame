@@ -12,7 +12,7 @@ import static com.badlogic.gdx.graphics.GL20.GL_ONE_MINUS_SRC_ALPHA;
 import static com.badlogic.gdx.graphics.GL20.GL_SRC_ALPHA;
 
 class Character {
-    private MonsterCombatGame monsterCombatGame;
+    protected MonsterCombatGame monsterCombatGame;
     private TiledMapTileLayer.Cell cell;
     private TiledMapTileLayer.Cell effectCell;
     private int x;
@@ -68,9 +68,9 @@ class Character {
 
                 if (monsterCombatGame.random.nextFloat() > 0.6) {
                     if (monsterCombatGame.random.nextBoolean()) {
-                        moveCharacter(monsterCombatGame.random.nextInt(3) - 1, 0, false);
+                        moveCharacter(monsterCombatGame.random.nextInt(3) - 1, 0);
                     } else {
-                        moveCharacter(0, monsterCombatGame.random.nextInt(3) - 1, false);
+                        moveCharacter(0, monsterCombatGame.random.nextInt(3) - 1);
                     }
                 }
             }
@@ -121,10 +121,9 @@ class Character {
      *
      * @param dx
      * @param dy
-     * @param canPush
      * @return
      */
-    public boolean moveCharacter(int dx, int dy, boolean canPush) {
+    public boolean moveCharacter(int dx, int dy) {
         int newPlayerX = getX() + dx;
         int newPlayerY = getY() + dy;
 
@@ -136,7 +135,7 @@ class Character {
             return false;
         }
 
-        if (!monsterCombatGame.player.handleBlockingCell(dx, dy, canPush, newPlayerX, newPlayerY)) {
+        if (!handleBlockingCell(dx, dy, newPlayerX, newPlayerY)) {
             return false;
         }
 
@@ -189,41 +188,16 @@ class Character {
      *
      * @param dx
      * @param dy
-     * @param canPush
      * @param newPlayerX
      * @param newPlayerY
      * @return
      */
-    private boolean handleBlockingCell(int dx, int dy, boolean canPush, int newPlayerX, int newPlayerY) {
+    protected boolean handleBlockingCell(int dx, int dy, int newPlayerX, int newPlayerY) {
         TiledMapTileLayer.Cell blockingCell = monsterCombatGame.moveableLayer.getCell(newPlayerX, newPlayerY);
         if (blockingCell == null) {
             return true;
         }
 
-        if (!canPush) {
-            return false;
-        }
-
-        MapProperties blockingCellProperties = blockingCell.getTile().getProperties();
-        if (blockingCellProperties.containsKey("zauber")) {
-            monsterCombatGame.destroyStones += blockingCellProperties.get("zauber", 0, Integer.class);
-            monsterCombatGame.destroyStonesLabel.setText(Integer.toString(monsterCombatGame.destroyStones));
-            return true;
-        }
-
-        if (!blockingCellProperties.containsKey("verschiebbar")) {
-            return false;
-        }
-
-        if (monsterCombatGame.destroyStones > 0) {
-            monsterCombatGame.destroyStones--;
-            monsterCombatGame.destroyStonesLabel.setText(Integer.toString(monsterCombatGame.destroyStones));
-            return true;
-        }
-
-        //TODO: Find existing Character instance instead!
-        Character pushedCharacter = new Character(monsterCombatGame, blockingCell, newPlayerX, newPlayerY);
-
-        return pushedCharacter.moveCharacter(dx, dy, canPush);
+        return false;
     }
 }

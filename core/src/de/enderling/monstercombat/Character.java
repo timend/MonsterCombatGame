@@ -37,7 +37,7 @@ class Character {
         this.cell = cell;
         this.x = x;
         this.y = y;
-        this.attack = cell.getTile().getProperties().get("stärke", Float.class);
+        this.attack = cell.getTile().getProperties().get("angriff", Float.class);
         this.lifePoints = getMaximumLifePoints();
     }
 

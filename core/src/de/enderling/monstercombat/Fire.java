@@ -66,7 +66,7 @@ class Fire {
             Character monster = monsterCombatGame.findMonster(newX, newY);
 
             if (monster != null) {
-                float stärke = cell.getTile().getProperties().get("stärke", 1f, Float.class);
+                float attack = cell.getTile().getProperties().get("angriff", 1f, Float.class);
 
                 Integer effectIndex = cell.getTile().getProperties().get("effekt", null, Integer.class);
                 TiledMapTile effect = null;
@@ -75,7 +75,7 @@ class Fire {
                     effect = monsterCombatGame.tiledMap.getTileSets().getTileSet("dungeon").getTile(effectIndex + 1);
                 }
 
-                monster.hit(stärke, effect);
+                monster.hit(attack, effect);
             }
 
             return true;

@@ -3,6 +3,8 @@ package de.enderling.monstercombat;
 import com.badlogic.gdx.maps.MapProperties;
 import com.badlogic.gdx.maps.tiled.TiledMapTile;
 import com.badlogic.gdx.maps.tiled.TiledMapTileSet;
+import com.badlogic.gdx.maps.tiled.tiles.AnimatedTiledMapTile;
+import com.badlogic.gdx.maps.tiled.tiles.StaticTiledMapTile;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Pools;
 import net.dermetfan.gdx.maps.tiled.TmxMapWriter;
@@ -61,6 +63,9 @@ public class TmxMapWriterFixed extends TmxMapWriter {
             asAttributes.clear();
             boolean elementEmitted = false;
             for(TiledMapTile tile = iter.next(); iter.hasNext(); tile = iter.next()) {
+
+
+
                 MapProperties tileProps = tile.getProperties();
                 for(String attribute : asAttributes)
                     if(tileProps.containsKey(attribute)) {
@@ -71,9 +76,25 @@ public class TmxMapWriterFixed extends TmxMapWriter {
                         attribute(attribute, tileProps.get(attribute));
                     }
 
-                if (tile.getProperties().getValues().hasNext()) {
+                if (tile.getProperties().getValues().hasNext() || tile instanceof  AnimatedTiledMapTile) {
                     element("tile");
                     attribute("id", tile.getId()-1);
+
+                    if (tile instanceof AnimatedTiledMapTile) {
+                        AnimatedTiledMapTile animatedTiledMapTile = (AnimatedTiledMapTile)tile;
+                        element("animation");
+                        int i = 0;
+                        for (StaticTiledMapTile staticTiledMapTile : animatedTiledMapTile.getFrameTiles()) {
+                            element("frame");
+                            attribute("tileid", staticTiledMapTile.getId()-1);
+                            attribute("duration", animatedTiledMapTile.getAnimationIntervals()[i]);
+                            pop();
+                            i++;
+                        }
+
+                        pop();
+                    }
+
                     tmx(tileProps, asAttributes);
                     pop();
                 }

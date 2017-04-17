@@ -11,6 +11,11 @@ import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Timer;
+import net.dermetfan.utils.Pair;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import static com.badlogic.gdx.graphics.GL20.GL_BLEND;
 import static com.badlogic.gdx.graphics.GL20.GL_ONE_MINUS_SRC_ALPHA;
@@ -41,7 +46,7 @@ class Character {
         this.lifePoints = getMaximumLifePoints();
     }
 
-    private Float getMaximumLifePoints() {
+    public Float getMaximumLifePoints() {
         return cell.getTile().getProperties().get("leben", null, Float.class);
     }
 
@@ -170,6 +175,10 @@ class Character {
         }
     }
 
+    public void setLifePoints(Float lifePoints) {
+        this.lifePoints = lifePoints;
+    }
+
     public TileMapNode findMoveToPlayer(boolean allowMoveThroughMonsters) {
         TileMapGraph tileMapGraph = new TileMapGraph(0, 0, monsterCombatGame.moveableLayer.getWidth(), monsterCombatGame.moveableLayer.getHeight(), allowMoveThroughMonsters);
         IndexedAStarPathFinder<TileMapNode> pathFinder = new IndexedAStarPathFinder<TileMapNode>(
@@ -190,6 +199,17 @@ class Character {
                 System.out.println("Open list peak.................. = " + pathFinder.metrics.openListPeak);
             }
             return null;
+        }
+    }
+
+    private static class Direction {
+        public int dx;
+        public int dy;
+
+        public Direction(int dx, int dy) {
+
+            this.dx = dx;
+            this.dy = dy;
         }
     }
 
@@ -215,11 +235,19 @@ class Character {
                 if (node != null) {
                     moveCharacter(node.x - x, node.y - y);
                 } else {
-                    if (monsterCombatGame.random.nextFloat() > 0.6) {
-                        if (monsterCombatGame.random.nextBoolean()) {
-                            moveCharacter(monsterCombatGame.random.nextInt(3) - 1, 0);
-                        } else {
-                            moveCharacter(0, monsterCombatGame.random.nextInt(3) - 1);
+                    if (monsterCombatGame.random.nextFloat() > 0.3) {
+                        List<Direction> directions = new ArrayList<Direction>();
+                        directions.add(new Direction(-1, 0));
+                        directions.add(new Direction(1, 0));
+                        directions.add(new Direction(0, -1));
+                        directions.add(new Direction(0, 1));
+
+                        Collections.shuffle(directions);
+
+                        for (Direction direction : directions) {
+                            if (moveCharacter(direction.dx, direction.dy)) {
+                                break;
+                            }
                         }
                     }
                 }

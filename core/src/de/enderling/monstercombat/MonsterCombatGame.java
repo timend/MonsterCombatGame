@@ -1,5 +1,6 @@
 package de.enderling.monstercombat;
 
+import box2dLight.*;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
@@ -7,9 +8,12 @@ import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.maps.MapLayer;
 import com.badlogic.gdx.maps.tiled.*;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
 
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.physics.box2d.*;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
@@ -21,8 +25,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
 
-import static com.badlogic.gdx.graphics.GL20.GL_ONE_MINUS_SRC_ALPHA;
-import static com.badlogic.gdx.graphics.GL20.GL_SRC_ALPHA;
+import static com.badlogic.gdx.graphics.GL20.*;
 
 public class MonsterCombatGame extends ApplicationAdapter implements InputProcessor {
     Texture img;
@@ -49,6 +52,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
 
     int lastPlayerDx = 1;
     int lastPlayerDy = 0;
+    private RayHandler rayHandler;
 
     public class GameState {
         String fileName;
@@ -61,9 +65,13 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
     }
 
     public GameState savePoint = null;
+    World world;
 
     @Override
     public void create () {
+        Box2D.init();
+
+
         float w = Gdx.graphics.getWidth();
         float h = Gdx.graphics.getHeight();
 
@@ -141,10 +149,14 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
                 throw new RuntimeException(e);
             }
         }
+
+        player.setLifePoints(player.getMaximumLifePoints());
     }
 
     public void loadGameState(GameState gameState) {
         timer.clear();
+        world = new World(new Vector2(0, 0), true);
+        rayHandler = new RayHandler(world);
 
         tiledMap = new TmxMapLoader().load(gameState.fileName);
         tiledMapRenderer = new OrthogonalTiledMapRenderer(tiledMap);
@@ -166,6 +178,53 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
 
         destroyStones = gameState.destroyStones;
         destroyStonesLabel.setText(Integer.toString(destroyStones));
+
+        for (int x = 0; x < moveableLayer.getWidth(); x++) {
+            for (int y = 0; y < moveableLayer.getHeight(); y++)  {
+                TiledMapTileLayer.Cell cell = moveableLayer.getCell(x, y);
+                if (cell == null || cell.getTile() == null) {
+                    continue;
+                }
+
+                if (cell.getTile().getProperties().getKeys().hasNext()) {
+                    continue;
+                }
+
+                BodyDef bodyDef = new BodyDef();
+                bodyDef.type = BodyDef.BodyType.StaticBody;
+                bodyDef.position.set(x*32+16, y*32+16);
+                Body body = world.createBody(bodyDef);
+                PolygonShape polygonShape = new PolygonShape();
+                polygonShape.setAsBox(16f, 16f);
+                FixtureDef fixtureDef = new FixtureDef();
+                fixtureDef.shape = polygonShape;
+                body.createFixture(fixtureDef);
+                polygonShape.dispose();
+
+
+            }
+        }
+
+        //rayHandler.setAmbientLight(0.5f);
+        //rayHandler.setShadows(false);
+        //new DirectionalLight(rayHandler, 200, new Color(1,1,1,1f), (float) Math.toRadians(45f));
+
+        rayHandler.setBlur(true);
+        rayHandler.setBlurNum(2);
+
+        rayHandler.simpleBlendFunc.set(GL_BLEND_SRC_RGB, GL_BLEND_DST_RGB);
+        TiledMapTileLayer lightLayer = (TiledMapTileLayer)tiledMap.getLayers().get("Licht");
+
+        for (int x = 0; x < lightLayer.getWidth(); x++) {
+            for (int y = 0; y < lightLayer.getHeight(); y++) {
+                TiledMapTileLayer.Cell cell = lightLayer.getCell(x, y);
+                if (cell == null || cell.getTile() == null) {
+                    continue;
+                }
+
+                new PointLight(rayHandler, 100, new Color(1, 1, 1, .7f), 32*14, x*32+16, y*32+16);
+            }
+        }
     }
 
     private Character findPlayer() {
@@ -204,7 +263,19 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
 
         player.draw(shapeRenderer);
 
+
+        //Gdx.gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        //Gdx.gl.glDisable(GL_BLEND);
+
+        rayHandler.setCombinedMatrix(camera);
+        //rayHandler.updateAndRender();
+
         stage.draw();
+
+//        Box2DDebugRenderer debugRenderer = new Box2DDebugRenderer();
+//        debugRenderer.render(world, camera.combined);
+
+
     }
 
     public void addObservedKey(int key) {

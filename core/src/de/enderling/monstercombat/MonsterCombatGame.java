@@ -212,7 +212,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         rayHandler.setBlur(true);
         rayHandler.setBlurNum(2);
 
-        rayHandler.simpleBlendFunc.set(GL_BLEND_SRC_RGB, GL_BLEND_DST_RGB);
+        rayHandler.simpleBlendFunc.set( GL_BLEND_SRC_ALPHA,  GL_BLEND_DST_ALPHA);
         TiledMapTileLayer lightLayer = (TiledMapTileLayer)tiledMap.getLayers().get("Licht");
 
         for (int x = 0; x < lightLayer.getWidth(); x++) {

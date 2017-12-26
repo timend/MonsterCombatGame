@@ -40,9 +40,37 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
     TiledMapTileLayer groundLayer;
     TiledMapTileLayer fireLayer;
     TiledMapTileLayer wallLayer;
+    TiledMapTileLayer roofLayer;
     TiledMap tiledMap;
 
     TiledMapTile waffe;
+
+    List<HiddenRoofCell> hiddenRoofCells = new ArrayList<HiddenRoofCell>();
+
+    private static class HiddenRoofCell {
+        TiledMapTileLayer.Cell cell;
+        TiledMapTile tile;
+
+        static public HiddenRoofCell hide(TiledMapTileLayer.Cell cell) {
+            HiddenRoofCell hiddenRoofCell = new HiddenRoofCell();
+            hiddenRoofCell.tile = cell.getTile();
+            hiddenRoofCell.cell = cell;
+            cell.setTile(null);
+            return hiddenRoofCell;
+        }
+
+        public void unhide() {
+            cell.setTile(tile);
+        }
+    }
+
+    public void unhideRoofs() {
+        for (HiddenRoofCell hiddenRoofCell : hiddenRoofCells) {
+            hiddenRoofCell.unhide();
+        }
+
+        hiddenRoofCells = new ArrayList<HiddenRoofCell>();
+    }
 
     List<Character> monsters;
     Character player;
@@ -177,6 +205,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         fireLayer = (TiledMapTileLayer) tiledMap.getLayers().get("Feuer");
         objectLayer = tiledMap.getLayers().get("Objekte");
         wallLayer =  (TiledMapTileLayer) tiledMap.getLayers().get("Wand");
+        roofLayer = (TiledMapTileLayer) tiledMap.getLayers().get("Dach");
 
         player = findPlayer("spieler");
         player2 = findPlayer("spieler2");
@@ -427,7 +456,45 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
                     savePoint();
                 }
             }
+
+            unhideRoofs();
+            uncoverRoof(this.player.getX(), this.player.getY(), true);
+            uncoverRoof(this.player2.getX(), this.player2.getY(), true);
         }
+    }
+
+    private void uncoverRoof(int x, int y, boolean continueFromDoor) {
+        if (x < 0 || y < 0 || x >= roofLayer.getWidth() || y >= roofLayer.getHeight()) {
+            return;
+        }
+
+        TiledMapTileLayer.Cell roofCell = roofLayer.getCell(x, y);
+        if (roofCell == null || roofCell.getTile() == null) {
+            return;
+        }
+
+        hiddenRoofCells.add(HiddenRoofCell.hide(roofCell));
+        TiledMapTileLayer.Cell wallCell = wallLayer.getCell(x, y);
+
+        if (wallCell != null) {
+            return;
+        }
+
+        boolean isDoor = (wallLayer.getCell(x - 1, y) != null && wallLayer.getCell(x + 1, y) != null) ||
+                (wallLayer.getCell(x, y - 1) != null && wallLayer.getCell(x, y + 1) != null);
+
+        if (isDoor && !continueFromDoor) {
+            return;
+        }
+
+        uncoverRoof(x-1, y-1, false);
+        uncoverRoof(x-1, y, false);
+        uncoverRoof(x-1, y+1, false);
+        uncoverRoof(x, y-1, false);
+        uncoverRoof(x, y+1, false);
+        uncoverRoof(x+1, y-1, false);
+        uncoverRoof(x+1, y, false);
+        uncoverRoof(x+1, y+1, false);
     }
 
     private boolean beamPlayer(int newX, int newY) {

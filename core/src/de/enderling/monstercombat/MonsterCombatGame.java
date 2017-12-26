@@ -39,6 +39,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
     TiledMapTileLayer moveableLayer;
     TiledMapTileLayer groundLayer;
     TiledMapTileLayer fireLayer;
+    TiledMapTileLayer wallLayer;
     TiledMap tiledMap;
 
     TiledMapTile waffe;
@@ -126,13 +127,13 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         this.timer = new Timer();
         this.random = new Random();
 
-        loadGameState(new GameState("julius.tmx", 0));
+        loadGameState(new GameState("planet.tmx", 0));
 
-        for (TiledMapTile tile : tiledMap.getTileSets().getTileSet("dungeon")) {
-            if (tile.getProperties().containsKey(("waffe"))) {
-                waffe = tile;
-            }
-        }
+//        for (TiledMapTile tile : tiledMap.getTileSets().getTileSet("dungeon")) {
+//            if (tile.getProperties().containsKey(("waffe"))) {
+//                waffe = tile;
+//            }
+//        }
 
 
         savePoint();
@@ -175,11 +176,10 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         groundLayer = (TiledMapTileLayer) tiledMap.getLayers().get("Boden");
         fireLayer = (TiledMapTileLayer) tiledMap.getLayers().get("Feuer");
         objectLayer = tiledMap.getLayers().get("Objekte");
+        wallLayer =  (TiledMapTileLayer) tiledMap.getLayers().get("Wand");
 
         player = findPlayer("spieler");
         player2 = findPlayer("spieler2");
-        camera.position.set((player.getX())*32, (player.getY()) * 32, 0);
-
         monsters = findCharacters("monster");
 
         for (Character monster : monsters) {
@@ -225,16 +225,16 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         rayHandler.simpleBlendFunc.set( GL_BLEND_SRC_ALPHA,  GL_BLEND_DST_ALPHA);
         TiledMapTileLayer lightLayer = (TiledMapTileLayer)tiledMap.getLayers().get("Licht");
 
-        for (int x = 0; x < lightLayer.getWidth(); x++) {
-            for (int y = 0; y < lightLayer.getHeight(); y++) {
-                TiledMapTileLayer.Cell cell = lightLayer.getCell(x, y);
-                if (cell == null || cell.getTile() == null) {
-                    continue;
-                }
-
-                new PointLight(rayHandler, 100, new Color(1, 1, 1, .7f), 32*14, x*32+16, y*32+16);
-            }
-        }
+//        for (int x = 0; x < lightLayer.getWidth(); x++) {
+//            for (int y = 0; y < lightLayer.getHeight(); y++) {
+//                TiledMapTileLayer.Cell cell = lightLayer.getCell(x, y);
+//                if (cell == null || cell.getTile() == null) {
+//                    continue;
+//                }
+//
+//                new PointLight(rayHandler, 100, new Color(1, 1, 1, .7f), 32*14, x*32+16, y*32+16);
+//            }
+//        }
     }
 
     private Character findPlayer(String propertyName) {
@@ -245,9 +245,9 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
     public void render () {
         processKeys();
 
-        if (player.getLifePoints() <= 0) {
-            loadGameState(savePoint);
-        }
+//        if (player.getLifePoints() <= 0) {
+//            loadGameState(savePoint);
+//        }
 
         fpsLabel.setText(Gdx.graphics.getFramesPerSecond() + " fps");
 
@@ -501,7 +501,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
                 if (cell != null && cell.getTile() != null) {
                     if (cell.getTile().getProperties().containsKey(propertyName)) {
 
-                        if (propertyName.equals("spieler")) {
+                        if (propertyName.equals("spieler") || propertyName.equals("spieler2")) {
                             characters.add(new Player(this, cell, x, y));
                         } else {
                             characters.add(new Character(this, cell, x, y));

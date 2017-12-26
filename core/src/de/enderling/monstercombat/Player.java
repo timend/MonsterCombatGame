@@ -10,7 +10,10 @@ public class Player extends Character {
 
     @Override
     protected boolean handleBlockingCell(int dx, int dy, int newX, int newY) {
-        TiledMapTileLayer.Cell blockingCell = monsterCombatGame.moveableLayer.getCell(newX, newY);
+
+        TiledMapTileLayer.Cell blockingCell = monsterCombatGame.wallLayer.getCell(newX, newY);
+
+//        TiledMapTileLayer.Cell blockingCell = monsterCombatGame.moveableLayer.getCell(newX, newY);
         if (blockingCell == null) {
             return true;
         }

@@ -264,7 +264,7 @@ class Character {
         if (effect != null) {
             effectCell = new TiledMapTileLayer.Cell();
             effectCell.setTile(effect);
-            monsterCombatGame.fireLayer.setCell(x, y, effectCell);
+//            monsterCombatGame.fireLayer.setCell(x, y, effectCell);
 
             float effectDuration = effect.getProperties().get("dauer", 1f, Float.class);
 
@@ -278,7 +278,7 @@ class Character {
                 public void run() {
                     effectCell = null;
                     effectTask = null;
-                    monsterCombatGame.fireLayer.setCell(x, y, null);
+//                    monsterCombatGame.fireLayer.setCell(x, y, null);
                 }
             }, effectDuration);
 
@@ -288,7 +288,7 @@ class Character {
 
         if (lifePoints <= 0) {
             monsterCombatGame.moveableLayer.setCell(x, y, null);
-            monsterCombatGame.fireLayer.setCell(x, y, null);
+//            monsterCombatGame.fireLayer.setCell(x, y, null);
             if (task != null) {
                 task.cancel();
             }
@@ -326,11 +326,11 @@ class Character {
 
     public void beam(int newX, int newY) {
         monsterCombatGame.moveableLayer.setCell(getX(), getY(), null);
-        monsterCombatGame.fireLayer.setCell(x, y, null);
+//        monsterCombatGame.fireLayer.setCell(x, y, null);
         setX(newX);
         setY(newY);
         monsterCombatGame.moveableLayer.setCell(getX(), getY(), getCell());
-        monsterCombatGame.fireLayer.setCell(x, y, effectCell);
+//        monsterCombatGame.fireLayer.setCell(x, y, effectCell);
     }
 
     public void draw(ShapeRenderer shapeRenderer) {
@@ -378,7 +378,9 @@ class Character {
      * @return
      */
     protected boolean handleBlockingCell(int dx, int dy, int newX, int newY) {
-        TiledMapTileLayer.Cell blockingCell = monsterCombatGame.moveableLayer.getCell(newX, newY);
+        TiledMapTileLayer.Cell blockingCell = monsterCombatGame.wallLayer.getCell(newX, newY);
+        
+//        TiledMapTileLayer.Cell blockingCell = monsterCombatGame.moveableLayer.getCell(newX, newY);
         if (blockingCell == null) {
             return true;
         }

@@ -320,13 +320,17 @@ class Character {
             return false;
         }
 
+        beam(newPlayerX, newPlayerY);
+        return true;
+    }
+
+    public void beam(int newX, int newY) {
         monsterCombatGame.moveableLayer.setCell(getX(), getY(), null);
         monsterCombatGame.fireLayer.setCell(x, y, null);
-        setX(newPlayerX);
-        setY(newPlayerY);
+        setX(newX);
+        setY(newY);
         monsterCombatGame.moveableLayer.setCell(getX(), getY(), getCell());
         monsterCombatGame.fireLayer.setCell(x, y, effectCell);
-        return true;
     }
 
     public void draw(ShapeRenderer shapeRenderer) {

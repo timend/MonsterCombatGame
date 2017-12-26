@@ -9,9 +9,12 @@ import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.maps.MapLayer;
+import com.badlogic.gdx.maps.MapObject;
+import com.badlogic.gdx.maps.objects.RectangleMapObject;
 import com.badlogic.gdx.maps.tiled.*;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
 
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.*;
 import com.badlogic.gdx.scenes.scene2d.Stage;
@@ -32,6 +35,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
     OrthographicCamera camera;
     TiledMapRenderer tiledMapRenderer;
 
+    MapLayer objectLayer;
     TiledMapTileLayer moveableLayer;
     TiledMapTileLayer groundLayer;
     TiledMapTileLayer fireLayer;
@@ -53,6 +57,7 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
     int lastPlayerDx = 1;
     int lastPlayerDy = 0;
     private RayHandler rayHandler;
+    private Character  player2;
 
     public class GameState {
         String fileName;
@@ -85,6 +90,11 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         addObservedKey(Input.Keys.RIGHT);
         addObservedKey(Input.Keys.UP);
         addObservedKey(Input.Keys.DOWN);
+
+        addObservedKey(Input.Keys.W);
+        addObservedKey(Input.Keys.A);
+        addObservedKey(Input.Keys.S);
+        addObservedKey(Input.Keys.D);
         addObservedKey(Input.Keys.SPACE);
         Gdx.input.setInputProcessor(this);
 
@@ -164,10 +174,10 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         moveableLayer = (TiledMapTileLayer) tiledMap.getLayers().get("Monster");
         groundLayer = (TiledMapTileLayer) tiledMap.getLayers().get("Boden");
         fireLayer = (TiledMapTileLayer) tiledMap.getLayers().get("Feuer");
+        objectLayer = tiledMap.getLayers().get("Objekte");
 
-        player = findPlayer();
-
-
+        player = findPlayer("spieler");
+        player2 = findPlayer("spieler2");
         camera.position.set((player.getX())*32, (player.getY()) * 32, 0);
 
         monsters = findCharacters("monster");
@@ -227,8 +237,8 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         }
     }
 
-    private Character findPlayer() {
-        return findCharacters("spieler").get(0);
+    private Character findPlayer(String propertyName) {
+        return findCharacters(propertyName).get(0);
     }
 
     @Override
@@ -248,11 +258,36 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
 
-        camera.update();
+        boolean splitScreen = Math.abs(player.getX() - player2.getX()) > Gdx.graphics.getWidth() / 32 - 3 ||
+                              Math.abs(player.getY() - player2.getY()) > Gdx.graphics.getHeight() / 32 - 3;
 
+        if (splitScreen) {
+            Character leftPlayer = player.getX() <= player2.getX() ? player : player2;
+            Character rightPlayer = leftPlayer == player ? player2 : player;
+
+            drawMap(0, Gdx.graphics.getWidth() / 2 - 20, leftPlayer.getX(), leftPlayer.getY());
+
+            drawMap(Gdx.graphics.getWidth()/2+10, Gdx.graphics.getWidth()/2-20, rightPlayer.getX(), rightPlayer.getY());
+        } else {
+            int middleX = (this.player.getX() + player2.getX()) / 2;
+            int middleY = (this.player.getY() + player2.getY()) / 2;
+
+            drawMap(0, Gdx.graphics.getWidth(), middleX, middleY);
+        }
+
+        Gdx.gl.glViewport(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        stage.draw();
+    }
+    private void drawMap(int viewPortX, int viewPortWidth, int centerX, int centerY) {
+        Gdx.gl.glViewport(viewPortX, 0, viewPortWidth, Gdx.graphics.getHeight());
+        camera.setToOrtho(false, viewPortWidth, Gdx.graphics.getHeight());
+        camera.position.set(centerX*32, centerY*32, 0);
+        camera.update();
+        draw();
+    }
+    private void draw() {
         tiledMapRenderer.setView(camera);
         tiledMapRenderer.render();
-
 
         ShapeRenderer shapeRenderer = new ShapeRenderer();
         shapeRenderer.setProjectionMatrix(camera.combined);
@@ -263,19 +298,15 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
 
         player.draw(shapeRenderer);
 
-
         //Gdx.gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         //Gdx.gl.glDisable(GL_BLEND);
 
         rayHandler.setCombinedMatrix(camera);
         //rayHandler.updateAndRender();
 
-        stage.draw();
 
-//        Box2DDebugRenderer debugRenderer = new Box2DDebugRenderer();
-//        debugRenderer.render(world, camera.combined);
-
-
+        //        Box2DDebugRenderer debugRenderer = new Box2DDebugRenderer();
+        //        debugRenderer.render(world, camera.combined);
     }
 
     public void addObservedKey(int key) {
@@ -353,15 +384,25 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         }
 
         if(observedKeys.get(Input.Keys.LEFT).justPressedOrRepeated())
-            movePlayer(-1, 0);
+            movePlayer(player, -1, 0);
         if(observedKeys.get(Input.Keys.RIGHT).justPressedOrRepeated())
-            movePlayer(1, 0);
+            movePlayer(player, 1, 0);
         if(observedKeys.get(Input.Keys.UP).justPressedOrRepeated())
-            movePlayer(0, 1);
+            movePlayer(player, 0, 1);
         if(observedKeys.get(Input.Keys.DOWN).justPressedOrRepeated())
-            movePlayer(0, -1);
+            movePlayer(player, 0, -1);
         if (observedKeys.get(Input.Keys.SPACE).justPressedOrRepeated())
             fire();
+        if(observedKeys.get(Input.Keys.A).justPressedOrRepeated())
+            movePlayer(player2, -1, 0);
+        if(observedKeys.get(Input.Keys.D).justPressedOrRepeated())
+            movePlayer(player2, 1, 0);
+        if(observedKeys.get(Input.Keys.W).justPressedOrRepeated())
+            movePlayer(player2, 0, 1);
+        if(observedKeys.get(Input.Keys.S).justPressedOrRepeated())
+            movePlayer(player2, 0, -1);
+
+
         return false;
     }
 
@@ -370,13 +411,13 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
         fire.init();
     }
 
-    private void movePlayer(int dx, int dy) {
+    private void movePlayer(Character player, int dx, int dy) {
         lastPlayerDx = dx;
         lastPlayerDy = dy;
 
-        if (player.moveCharacter(dx, dy)) {
-            camera.translate(32 * dx, 32 * dy);
+        //if (beamPlayer(player.getX() + dx, player.getY() + dy)) {
 
+        /*} else*/ if (player.moveCharacter(dx, dy)) {
             TiledMapTileLayer.Cell cell = groundLayer.getCell(player.getX(), player.getY());
 
             if (cell != null) {
@@ -387,7 +428,33 @@ public class MonsterCombatGame extends ApplicationAdapter implements InputProces
                 }
             }
         }
+    }
 
+    private boolean beamPlayer(int newX, int newY) {
+        for (MapObject mapObject : objectLayer.getObjects()) {
+            if (mapObject instanceof RectangleMapObject) {
+                RectangleMapObject rectangleMapObject = (RectangleMapObject)mapObject;
+                if (rectangleMapObject.getRectangle().contains(newX*32+16, newY*32+16)) {
+                    String targetObjectName = rectangleMapObject.getProperties().get("ziel", String.class);
+                    String targetFile = rectangleMapObject.getProperties().get("zielkarte", String.class);
+
+                    if (targetFile != null) {
+                        loadGameState(new GameState(targetFile, destroyStones));
+                    }
+
+                    if (targetObjectName != null) {
+                        MapObject targetObject = objectLayer.getObjects().get(targetObjectName);
+
+                        Rectangle rectangle = ((RectangleMapObject) targetObject).getRectangle();
+
+                        player.beam((int)rectangle.getX()/32,(int) rectangle.getY()/32);
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     int destroyStones = 0;
